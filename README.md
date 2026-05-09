@@ -41,7 +41,7 @@ Install the requirements using the embedded Python environment:
 
 cd Rebels_HiDream_01_Image_Dev_NODES
 
-'..\..\..\python_embeded\python.exe -m pip install -r requirements.txt'
+' ..\..\..\python_embeded\python.exe -m pip install -r requirements.txt '
 
 Option 2: Desktop / Standard Python Environment
 
