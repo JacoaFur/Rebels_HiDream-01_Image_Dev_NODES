@@ -16,42 +16,43 @@ Before installing the custom nodes, you need the upstream model code and the wei
 Clone the Upstream HiDream-O1 Repo:
 The nodes rely on the official pipeline logic. Clone this anywhere on your local system:
 
-Bash
+
 git clone https://github.com/HiDream-ai/HiDream-O1-Image.git
+
 Download the GGUF Model:
-Download your preferred HiDream-O1-Image-Dev GGUF (e.g., Q6_K) from Hugging Face.
+Download HiDream-O1-Image-Dev GGUF (Q6_K) from Hugging Face: https://huggingface.co/smthem/HiDream-O1-Image-Dev/blob/main/HiDream-O1-Image-Dev-Q6_K.gguf
 Place the .gguf file in: ComfyUI/models/diffusion_models/
 
 🛠️ Installation
 Option 1: ComfyUI Windows Portable
 Note: Ensure your ComfyUI portable installation is located on a strict local system drive (e.g., C:\ or D:\). Do not install or run these nodes from a OneDrive-synced folder, as it will cause virtual environment and pathing errors.
 
-Open a command prompt and navigate to your portable custom nodes directory:
+Opena command prompt and navigate to your portable custom nodes directory:
 
-DOS
+
 cd \path\to\ComfyUI_windows_portable\ComfyUI\custom_nodes
 Clone this repository:
 
-DOS
+
 git clone https://github.com/YourUsername/Rebels_HiDream_01_Image_Dev_NODES.git
 Install the requirements using the embedded Python environment:
 
-DOS
+
 cd Rebels_HiDream_01_Image_Dev_NODES
 ..\..\..\python_embeded\python.exe -m pip install -r requirements.txt
 Option 2: Desktop / Standard Python Environment
 Navigate to your ComfyUI custom nodes directory:
 
-Bash
+
 cd ComfyUI/custom_nodes
 Clone this repository:
 
-Bash
+
 git clone https://github.com/YourUsername/Rebels_HiDream_01_Image_Dev_NODES.git
 cd Rebels_HiDream_01_Image_Dev_NODES
 Activate your ComfyUI virtual environment and install the requirements:
 
-Bash
+
 pip install -r requirements.txt
 🧩 Node Documentation
 Rebel HiDream-O1 Loader (GGUF)
