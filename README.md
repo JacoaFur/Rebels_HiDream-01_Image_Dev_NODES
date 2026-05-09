@@ -31,10 +31,11 @@ Open a command prompt and navigate to your portable custom nodes directory:
 
 
 cd \ComfyUI_windows_portable\ComfyUI\custom_nodes
+
 Clone this repository:
 
-
 git clone https://github.com/YourUsername/Rebels_HiDream_01_Image_Dev_NODES.git
+
 Install the requirements using the embedded Python environment:
 
 
