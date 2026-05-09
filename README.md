@@ -30,7 +30,7 @@ Note: Ensure your ComfyUI portable installation is located on a strict local sys
 Opena command prompt and navigate to your portable custom nodes directory:
 
 
-cd \path\to\ComfyUI_windows_portable\ComfyUI\custom_nodes
+cd \ComfyUI_windows_portable\ComfyUI\custom_nodes
 Clone this repository:
 
 
