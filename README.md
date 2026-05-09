@@ -1,5 +1,11 @@
 # Rebels_HiDream-01_Image_Dev_NODES
+
+WIP!!!
+
 node set to run the HiDream-01 Image Dev GGUF from smthem
+
+<img width="2048" height="2048" alt="Test__00008_" src="https://github.com/user-attachments/assets/4b169eb7-8e1b-4972-96f6-5edf8c9a7a56" />
+
 
 
 
