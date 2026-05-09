@@ -81,9 +81,9 @@ Connect the model output from the Loader here.
 
 steps: 20-30 is the recommended sweet spot.
 
-cfg: Keep 0.0. Higher CFG combined with heavy styling tags can cause "deep-fried" or crushed-shadow artifacts due to the literal pixel-rendering nature of the model.
+cfg: Keep between 2.5 - 4.0. Higher CFG combined with heavy styling tags can cause "deep-fried" or crushed-shadow artifacts due to the literal pixel-rendering nature of the model.
 
-shift: Controls the timestep scheduling curve. 1.0 is default; 1.5 pushes the model to focus on macro-composition earlier.
+shift: keep at 3.0. Controls the timestep scheduling curve. 
 
 scheduler_name:
 
