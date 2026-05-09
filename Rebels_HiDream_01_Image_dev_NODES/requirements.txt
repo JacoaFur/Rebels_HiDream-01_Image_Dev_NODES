@@ -1,0 +1,7 @@
+transformers>=4.50.0
+gguf>=0.10.0
+accelerate>=0.30.0
+sentencepiece
+protobuf
+numpy
+Pillow
