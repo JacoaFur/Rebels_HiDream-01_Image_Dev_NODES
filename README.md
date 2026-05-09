@@ -27,7 +27,7 @@ Place the .gguf file in: ComfyUI/models/diffusion_models/
 Option 1: ComfyUI Windows Portable
 Note: Ensure your ComfyUI portable installation is located on a strict local system drive (e.g., C:\ or D:\). Do not install or run these nodes from a OneDrive-synced folder, as it will cause virtual environment and pathing errors.
 
-Opena command prompt and navigate to your portable custom nodes directory:
+Open a command prompt and navigate to your portable custom nodes directory:
 
 
 cd \ComfyUI_windows_portable\ComfyUI\custom_nodes
