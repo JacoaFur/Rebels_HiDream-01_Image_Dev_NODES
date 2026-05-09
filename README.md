@@ -41,20 +41,25 @@ Install the requirements using the embedded Python environment:
 
 cd Rebels_HiDream_01_Image_Dev_NODES
 ..\..\..\python_embeded\python.exe -m pip install -r requirements.txt
+
 Option 2: Desktop / Standard Python Environment
+
 Navigate to your ComfyUI custom nodes directory:
 
-
 cd ComfyUI/custom_nodes
+
 Clone this repository:
 
 
 git clone https://github.com/YourUsername/Rebels_HiDream_01_Image_Dev_NODES.git
-cd Rebels_HiDream_01_Image_Dev_NODES
+
+
+
 Activate your ComfyUI virtual environment and install the requirements:
 
-
+cd Rebels_HiDream_01_Image_Dev_NODES
 pip install -r requirements.txt
+
 🧩 Node Documentation
 Rebel HiDream-O1 Loader (GGUF)
 Loads the GGUF model and performs upfront dequantization.
