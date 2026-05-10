@@ -4,7 +4,8 @@ WIP!!!
 
 node set to run the HiDream-01 Image Dev GGUF from smthem and the comfy-org bf16 model
 
-<img width="2048" height="2048" alt="Test__00008_" src="https://github.com/user-attachments/assets/4b169eb7-8e1b-4972-96f6-5edf8c9a7a56" />
+<img width="2048" height="2048" alt="BF16__00002_" src="https://github.com/user-attachments/assets/d235d078-0bee-4574-9e05-215407d8f65f" />
+
 
 
 
