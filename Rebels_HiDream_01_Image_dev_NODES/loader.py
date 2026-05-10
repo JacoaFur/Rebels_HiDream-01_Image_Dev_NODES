@@ -1,5 +1,8 @@
 """
-Rebel HiDream-O1 GGUF Loader.
+Rebel HiDream-O1 Loaders.
+  - RebelHiDreamO1Loader      → GGUF path (uses gguf_ops.load_gguf)
+  - RebelHiDreamO1LoaderHF    → bf16/safetensors path (standard from_pretrained)
+Both return a HIDREAM_O1_MODEL handle the sampler can drive.
 """
 import os
 import sys
@@ -55,6 +58,9 @@ def _add_special_tokens(tokenizer):
         setattr(tokenizer, attr, tok)
 
 
+# ===========================================================================
+# GGUF loader (unchanged — keep using if you want)
+# ===========================================================================
 class RebelHiDreamO1Loader:
 
     @classmethod
@@ -143,4 +149,93 @@ class RebelHiDreamO1Loader:
             "dtype":             torch_dtype,
             "offload":           offload,
             "gguf_path":         gguf_path,
+        },)
+
+
+# ===========================================================================
+# BF16 / safetensors loader (NEW — use this for the full-precision model)
+# ===========================================================================
+class RebelHiDreamO1LoaderHF:
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "model_path": ("STRING", {
+                    "default": "HiDream-ai/HiDream-O1-Image-Dev",
+                    "multiline": False,
+                    "tooltip": (
+                        "HF repo id OR local folder containing config.json, "
+                        "model.safetensors.index.json + shards, and tokenizer files. "
+                        "If you've downloaded the model locally, paste the folder path here."
+                    ),
+                }),
+                "upstream_repo_path": ("STRING", {
+                    "default": r"C:\Users\noahp\HiDream-O1-Image",
+                    "multiline": False,
+                }),
+                "dtype": (["bfloat16", "float16"], {"default": "bfloat16"}),
+                "offload": (list(OFFLOAD_PRESETS.keys()), {"default": "aggressive"}),
+                "offload_folder": ("STRING", {
+                    "default": r"D:\AI_Tools\hidream_offload",
+                    "tooltip": (
+                        "Disk offload folder for layers that don't fit in VRAM+RAM. "
+                        "Will be created if missing."
+                    ),
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("HIDREAM_O1_MODEL",)
+    RETURN_NAMES = ("model",)
+    FUNCTION = "load"
+    CATEGORY = "Rebels/HiDream-O1"
+
+    def load(self, model_path, upstream_repo_path, dtype, offload, offload_folder):
+        torch_dtype = {"bfloat16": torch.bfloat16, "float16": torch.float16}[dtype]
+        preset = OFFLOAD_PRESETS[offload]
+
+        _ensure_upstream_path(upstream_repo_path)
+        from models.qwen3_vl_transformers import Qwen3VLForConditionalGeneration
+        from models.pipeline import generate_image, DEFAULT_TIMESTEPS
+
+        os.makedirs(offload_folder, exist_ok=True)
+
+        max_memory = {
+            0:     f"{preset['cuda_gb']:.1f}GiB",
+            "cpu": f"{preset['cpu_gb']:.1f}GiB",
+        }
+
+        print(f"[Rebels_HiDream_O1] Loading BF16 model from: {model_path}")
+        print(f"[Rebels_HiDream_O1] Memory budget: {max_memory}, disk offload: {offload_folder}")
+
+        model = Qwen3VLForConditionalGeneration.from_pretrained(
+            model_path,
+            torch_dtype=torch_dtype,
+            device_map="auto",
+            max_memory=max_memory,
+            offload_folder=offload_folder,
+            low_cpu_mem_usage=True,
+            trust_remote_code=True,
+        )
+        model.eval()
+
+        processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+        tokenizer = (
+            processor
+            if isinstance(processor, PreTrainedTokenizerBase)
+            else processor.tokenizer
+        )
+        _add_special_tokens(tokenizer)
+
+        return ({
+            "model":             model,
+            "processor":         processor,
+            "tokenizer":         tokenizer,
+            "generate_image":    generate_image,
+            "DEFAULT_TIMESTEPS": DEFAULT_TIMESTEPS,
+            "device":            "cuda",
+            "dtype":             torch_dtype,
+            "offload":           offload,
+            "model_path":        model_path,
         },)
