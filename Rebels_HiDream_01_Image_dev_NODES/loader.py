@@ -1,7 +1,7 @@
 """
 Rebel HiDream-O1 Loaders.
   - RebelHiDreamO1Loader      → GGUF path (uses gguf_ops.load_gguf)
-  - RebelHiDreamO1LoaderHF    → bf16/safetensors path (standard from_pretrained)
+  - RebelHiDreamO1LoaderHF    → bf16 single-file safetensors path
 Both return a HIDREAM_O1_MODEL handle the sampler can drive.
 """
 import os
@@ -59,7 +59,7 @@ def _add_special_tokens(tokenizer):
 
 
 # ===========================================================================
-# GGUF loader (unchanged — keep using if you want)
+# GGUF loader
 # ===========================================================================
 class RebelHiDreamO1Loader:
 
@@ -153,21 +153,26 @@ class RebelHiDreamO1Loader:
 
 
 # ===========================================================================
-# BF16 / safetensors loader (NEW — use this for the full-precision model)
+# BF16 / single-file safetensors loader
 # ===========================================================================
 class RebelHiDreamO1LoaderHF:
 
     @classmethod
     def INPUT_TYPES(cls):
+        try:
+            ckpts = [f for f in folder_paths.get_filename_list("checkpoints")
+                     if f.lower().endswith(".safetensors")]
+        except Exception:
+            ckpts = []
         return {
             "required": {
-                "model_path": ("STRING", {
+                "safetensors_file": (ckpts if ckpts else ["<no .safetensors files in checkpoints/>"],),
+                "config_path": ("STRING", {
                     "default": "HiDream-ai/HiDream-O1-Image-Dev",
                     "multiline": False,
                     "tooltip": (
-                        "HF repo id OR local folder containing config.json, "
-                        "model.safetensors.index.json + shards, and tokenizer files. "
-                        "If you've downloaded the model locally, paste the folder path here."
+                        "HF repo id OR local folder containing config.json + tokenizer files. "
+                        "The single .safetensors file doesn't include these — they come from here."
                     ),
                 }),
                 "upstream_repo_path": ("STRING", {
@@ -178,10 +183,7 @@ class RebelHiDreamO1LoaderHF:
                 "offload": (list(OFFLOAD_PRESETS.keys()), {"default": "aggressive"}),
                 "offload_folder": ("STRING", {
                     "default": r"D:\AI_Tools\hidream_offload",
-                    "tooltip": (
-                        "Disk offload folder for layers that don't fit in VRAM+RAM. "
-                        "Will be created if missing."
-                    ),
+                    "tooltip": "Disk offload folder for layers that don't fit in VRAM+RAM. Created if missing.",
                 }),
             }
         }
@@ -191,7 +193,17 @@ class RebelHiDreamO1LoaderHF:
     FUNCTION = "load"
     CATEGORY = "Rebels/HiDream-O1"
 
-    def load(self, model_path, upstream_repo_path, dtype, offload, offload_folder):
+    def load(self, safetensors_file, config_path, upstream_repo_path,
+             dtype, offload, offload_folder):
+        from accelerate import load_checkpoint_and_dispatch
+
+        sft_path = folder_paths.get_full_path("checkpoints", safetensors_file)
+        if sft_path is None or not os.path.isfile(sft_path):
+            raise FileNotFoundError(
+                f"safetensors file not found: {safetensors_file}\n"
+                f"Expected in ComfyUI/models/checkpoints/"
+            )
+
         torch_dtype = {"bfloat16": torch.bfloat16, "float16": torch.float16}[dtype]
         preset = OFFLOAD_PRESETS[offload]
 
@@ -199,28 +211,31 @@ class RebelHiDreamO1LoaderHF:
         from models.qwen3_vl_transformers import Qwen3VLForConditionalGeneration
         from models.pipeline import generate_image, DEFAULT_TIMESTEPS
 
-        os.makedirs(offload_folder, exist_ok=True)
+        config = AutoConfig.from_pretrained(config_path, trust_remote_code=True)
+        with init_empty_weights():
+            model = Qwen3VLForConditionalGeneration(config)
 
+        os.makedirs(offload_folder, exist_ok=True)
         max_memory = {
             0:     f"{preset['cuda_gb']:.1f}GiB",
             "cpu": f"{preset['cpu_gb']:.1f}GiB",
         }
 
-        print(f"[Rebels_HiDream_O1] Loading BF16 model from: {model_path}")
+        print(f"[Rebels_HiDream_O1] Loading bf16 safetensors: {sft_path}")
         print(f"[Rebels_HiDream_O1] Memory budget: {max_memory}, disk offload: {offload_folder}")
 
-        model = Qwen3VLForConditionalGeneration.from_pretrained(
-            model_path,
-            torch_dtype=torch_dtype,
+        model = load_checkpoint_and_dispatch(
+            model,
+            checkpoint=sft_path,
             device_map="auto",
             max_memory=max_memory,
             offload_folder=offload_folder,
-            low_cpu_mem_usage=True,
-            trust_remote_code=True,
+            no_split_module_classes=["Qwen3VLDecoderLayer"],
+            dtype=torch_dtype,
         )
         model.eval()
 
-        processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+        processor = AutoProcessor.from_pretrained(config_path, trust_remote_code=True)
         tokenizer = (
             processor
             if isinstance(processor, PreTrainedTokenizerBase)
@@ -237,5 +252,5 @@ class RebelHiDreamO1LoaderHF:
             "device":            "cuda",
             "dtype":             torch_dtype,
             "offload":           offload,
-            "model_path":        model_path,
+            "model_path":        sft_path,
         },)
