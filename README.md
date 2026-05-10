@@ -102,13 +102,13 @@ Connect the model output from the Loader here.
 
 steps: 20-30 is the recommended sweet spot.
 
-cfg: Keep between 2.5 - 4.0. Higher CFG combined with heavy styling tags can cause "deep-fried" or crushed-shadow artifacts due to the literal pixel-rendering nature of the model.
+cfg: Keep 0.0 Higher CFG combined with heavy styling tags can cause "deep-fried" or crushed-shadow artifacts due to the literal pixel-rendering nature of the model.
 
-shift: keep at 6.0. Controls the timestep scheduling curve. 
+shift: keep at 3.0. Controls the timestep scheduling curve. 
 
 scheduler_name:
 
-default: Standard sampling.
+MUST USE:
 
 flash: Injects specific noise profiles. Note: The noise_scale_start, noise_scale_end, and noise_clip_std parameters only apply if the scheduler is set to flash.
 
@@ -148,13 +148,13 @@ Connect the model output from the Loader here.
 
 steps: 20-30 is the recommended sweet spot.
 
-cfg: Keep between 2.5 - 4.0. Higher CFG combined with heavy styling tags can cause "deep-fried" or crushed-shadow artifacts due to the literal pixel-rendering nature of the model.
+cfg: Keep at 0.0 Higher CFG combined with heavy styling tags can cause "deep-fried" or crushed-shadow artifacts due to the literal pixel-rendering nature of the model.
 
-shift: Keep at 6.0
+shift: Keep at 3.0
 
 scheduler name
 
-default: Standard sampling.
+MUST USE:
 
 flash: Injects specific noise profiles. Note: The noise_scale_start, noise_scale_end, and noise_clip_std parameters only apply if the scheduler is set to flash.
 
