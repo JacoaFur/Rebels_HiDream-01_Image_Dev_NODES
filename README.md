@@ -1,10 +1,10 @@
 # Rebels_HiDream-01_Image_Dev_NODES
 
-WIP!!!
 
 node set to run the HiDream-01 Image Dev GGUF from smthem and the comfy-org bf16 model
 
-<img width="2048" height="2048" alt="BF16__00002_" src="https://github.com/user-attachments/assets/d235d078-0bee-4574-9e05-215407d8f65f" />
+<img width="2048" height="2048" alt="BF16__00017_" src="https://github.com/user-attachments/assets/8c2370f1-a8b9-44d8-ad96-6d752a3eed0f" />
+
 
 
 
