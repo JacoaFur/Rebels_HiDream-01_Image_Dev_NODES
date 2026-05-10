@@ -118,3 +118,49 @@ Resolution Snapping: HiDream-O1 enforces strict token sequence lengths based on 
 Compute Times: Because the model renders a raw 2048x2048 image pixel-by-pixel without a VAE, generation times will be significantly longer than standard latent models (like SDXL or Flux).
 
 Prompting Style: Avoid stacking heavy texture tags (e.g., "8k resolution, ultra-detailed, gritty textures") unless you want a heavily illustrated look. For photorealism, use clean, simple photographic terms.
+
+
+
+🧩 Node Documentation (BF16 / Safetensors)
+Rebel HiDream-O1 Loader (Safetensors)
+Loads the pure, uncompressed bfloat16 safetensors model directly, preserving 100% of the original mathematical precision to eliminate quantization artifacts.
+
+model_name: Select your .safetensors model from the models/checkpoints/ folder.
+
+tokenizer_path: Default is HiDream-ai/HiDream-O1-Image-Dev. It will automatically fetch the tokenizer config from Hugging Face.
+
+upstream_repo_path: The absolute local path to where you cloned the HiDream-O1-Image repository in the prerequisites (e.g., C:\Users\name\HiDream-O1-Image).
+
+device: Set to cuda for GPU acceleration.
+
+offload:
+
+aggressive: Heavily utilizes system RAM offloading (Recommended for 8GB VRAM cards like the RTX 3070).
+
+balanced: Standard memory splitting.
+
+minimal: Keeps most of the model in VRAM.
+
+Note: The loader will take a moment to memory-map the massive 16.4GB bfloat16 file and balance it across your system RAM and VRAM. Because this workflow uses the native uncompressed weights instead of heavily quantized blocks, the model is much more sensitive to guidance.
+
+Rebel HiDream-O1 Sampler
+Connect the model output from the Loader here.
+
+steps: 20-30 is the recommended sweet spot.
+
+cfg: Keep between 2.5 and 4.0. Higher CFG combined with heavy styling tags can cause "deep-fried" or crushed-shadow artifacts due to the literal pixel-rendering nature of the model.
+
+shift: Keep at 3.0. Controls the timestep scheduling curve, delaying fine-detail rendering to accommodate the massive canvas size.
+
+scheduler_name:
+
+default: Standard sampling.
+
+flash: Injects specific noise profiles. Note: The noise_scale_start, noise_scale_end, and noise_clip_std parameters only apply if the scheduler is set to flash.
+
+⚠️ Known Limitations & Behaviors
+Resolution Snapping: HiDream-O1 enforces strict token sequence lengths based on its pre-trained position embeddings. If you input a lower resolution (like 512x512 or 1024x1024), the upstream pipeline will automatically "snap" and force the generation to 2048x2048.
+
+Compute Times: Because the model renders a raw 2048x2048 image pixel-by-pixel without a VAE, generation times will be significantly longer than standard latent models (like SDXL or Flux).
+
+Prompting Style: Avoid stacking heavy texture tags (e.g., "8k resolution, ultra-detailed, gritty textures") unless you want a heavily illustrated look. For photorealism, use clean, simple photographic terms.
