@@ -9,7 +9,7 @@ node set to run the HiDream-01 Image Dev GGUF from smthem
 
 
 
-Rebel HiDream-O1 GGUF Nodes for ComfyUI
+Rebel HiDream-O1 bf16 and GGUF Nodes for ComfyUI
 Created by Rebel AI
 
 This repository provides custom ComfyUI nodes to run HiDream-O1-Image-Dev GGUF models locally.
@@ -25,9 +25,16 @@ The nodes rely on the official pipeline logic. Clone this anywhere on your local
 
 git clone https://github.com/HiDream-ai/HiDream-O1-Image.git
 
+Download the bf16 Model:
+https://huggingface.co/Comfy-Org/HiDream-O1-Image/tree/main/checkpoints
+
+Place the bf16 file in CHECKPOINTS: ComfyUI/models/checkpoints/
+
+
 Download the GGUF Model:
-Download HiDream-O1-Image-Dev GGUF (Q6_K) from Hugging Face: https://huggingface.co/smthem/HiDream-O1-Image-Dev/blob/main/HiDream-O1-Image-Dev-Q6_K.gguf
-Place the .gguf file in: ComfyUI/models/diffusion_models/
+https://huggingface.co/smthem/HiDream-O1-Image-Dev/blob/main/HiDream-O1-Image-Dev-Q6_K.gguf
+
+Place the .gguf file in DIFFUSION_MODELS: ComfyUI/models/diffusion_models/
 
 🛠️ Installation
 Option 1: ComfyUI Windows Portable
