@@ -11,7 +11,7 @@ run the command "git pull" to update the nodes.
 
 then restart comfy and drag the workflow into comfy!
 
-node set to run the HiDream-01 Image Dev GGUF from smthem and the comfy-org bf16 model
+# node set to run the HiDream-01 Image Dev GGUF from smthem and the comfy-org bf16 model
 
 <img width="2048" height="2048" alt="BF16__00017_" src="https://github.com/user-attachments/assets/8c2370f1-a8b9-44d8-ad96-6d752a3eed0f" />
 
