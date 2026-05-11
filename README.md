@@ -1,5 +1,13 @@
 # Rebels_HiDream-01_Image_Dev_NODES
 
+VERSION 2
+NOW SUPPORTS MULTI-REFERENCE EDITING!
+Added Ability to edit with up to 4 reference images.
+open a command prompt in the "Rebels_HiDream_01_Image_dev_NODES" folder.
+
+run the command "git pull" to update the nodes.
+
+then restart comfy and drag the workflow into comfy!
 
 node set to run the HiDream-01 Image Dev GGUF from smthem and the comfy-org bf16 model
 
