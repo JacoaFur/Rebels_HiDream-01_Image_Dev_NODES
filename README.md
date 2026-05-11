@@ -8,6 +8,7 @@ Added Ability to edit with up to 4 reference images.
 open a command prompt in the "Rebels_HiDream_01_Image_dev_NODES" folder.
 
 run the command "git pull" to update the nodes.
+
 NEW Workflow:
 https://civitai.com/models/2611889/rebels-hidream-01-image-dev?modelVersionId=2937990
 
