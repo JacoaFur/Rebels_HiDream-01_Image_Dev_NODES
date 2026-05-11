@@ -1,6 +1,6 @@
 # Rebels_HiDream-01_Image_Dev_NODES
 
-VERSION 2
+
 NOW SUPPORTS MULTI-REFERENCE EDITING!
 
 Added Ability to edit with up to 4 reference images.
