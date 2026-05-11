@@ -20,7 +20,7 @@ then restart comfy and drag the workflow into comfy!
 
 
 
-Rebel HiDream-O1 bf16 and GGUF Nodes for ComfyUI
+# Rebel HiDream-O1 bf16 and GGUF Nodes for ComfyUI
 Created by Rebel AI
 
 This repository provides custom ComfyUI nodes to run HiDream-O1-Image-Dev GGUF models locally.
