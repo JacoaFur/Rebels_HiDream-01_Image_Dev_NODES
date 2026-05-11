@@ -1,18 +1,15 @@
 """
 Rebel HiDream-O1 Sampler.
-Wraps upstream models.pipeline.generate_image() and converts PIL → IMAGE tensor.
-
-Resolution presets match HiDream-O1's PREDEFINED_RESOLUTIONS — anything outside
-these snaps to the nearest aspect ratio inside the pipeline. The "Custom (force)"
-option monkey-patches find_closest_resolution to bypass snapping for that one
-call. Use at your own risk: outside trained resolutions the model often emits
-black or garbled images.
+Wraps upstream models.pipeline.generate_image().
+Supports T2I and image editing with up to 4 reference images.
 """
+import os
+import tempfile
 import numpy as np
 import torch
+from PIL import Image
 
 
-# Mirror of upstream PREDEFINED_RESOLUTIONS, with friendly labels.
 RESOLUTION_PRESETS = {
     "2048x2048 (1:1 square)":      (2048, 2048),
     "2304x1728 (4:3 landscape)":   (2304, 1728),
@@ -29,6 +26,15 @@ RESOLUTION_PRESETS = {
 }
 
 
+def _image_to_path(image_tensor, temp_dir, index):
+    """Convert a ComfyUI IMAGE tensor [1,H,W,3] to a saved PNG path."""
+    img_np = (image_tensor[0].cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
+    pil_img = Image.fromarray(img_np)
+    path = os.path.join(temp_dir, f"ref_{index}.png")
+    pil_img.save(path)
+    return path
+
+
 class RebelHiDreamO1Sampler:
 
     @classmethod
@@ -43,14 +49,20 @@ class RebelHiDreamO1Sampler:
                 "resolution_preset": (list(RESOLUTION_PRESETS.keys()),
                                       {"default": "2048x2048 (1:1 square)"}),
                 "custom_width":  ("INT", {"default": 1024, "min": 256, "max": 4096, "step": 64,
-                                          "tooltip": "Only used when resolution_preset is 'Custom (force…)'."}),
+                                          "tooltip": "Only used when Custom is selected."}),
                 "custom_height": ("INT", {"default": 1024, "min": 256, "max": 4096, "step": 64,
-                                          "tooltip": "Only used when resolution_preset is 'Custom (force…)'."}),
+                                          "tooltip": "Only used when Custom is selected."}),
                 "steps": ("INT",   {"default": 28,  "min": 1,   "max": 100}),
                 "cfg":   ("FLOAT", {"default": 0.0, "min": 0.0, "max": 10.0, "step": 0.1}),
                 "seed":  ("INT",   {"default": 32,  "min": 0,   "max": 0xffffffffffffffff}),
             },
             "optional": {
+                "ref_image_1": ("IMAGE", {"tooltip": "Reference image 1 for editing / subject-driven generation."}),
+                "ref_image_2": ("IMAGE", {"tooltip": "Reference image 2."}),
+                "ref_image_3": ("IMAGE", {"tooltip": "Reference image 3."}),
+                "ref_image_4": ("IMAGE", {"tooltip": "Reference image 4."}),
+                "keep_original_aspect": ("BOOLEAN", {"default": False,
+                    "tooltip": "With exactly 1 ref image, output matches that image's aspect ratio."}),
                 "shift":             ("FLOAT", {"default": 1.0, "min": 0.1, "max": 10.0, "step": 0.1}),
                 "scheduler_name":    (["flash", "default"], {"default": "flash"}),
                 "noise_scale_start": ("FLOAT", {"default": 7.5, "min": 0.0, "max": 20.0, "step": 0.1}),
@@ -65,32 +77,43 @@ class RebelHiDreamO1Sampler:
 
     def sample(self, model, prompt, resolution_preset,
                custom_width, custom_height, steps, cfg, seed,
+               ref_image_1=None, ref_image_2=None,
+               ref_image_3=None, ref_image_4=None,
+               keep_original_aspect=False,
                shift=1.0, scheduler_name="flash",
                noise_scale_start=7.5, noise_scale_end=7.5, noise_clip_std=2.5):
         generate_image    = model["generate_image"]
         DEFAULT_TIMESTEPS = model["DEFAULT_TIMESTEPS"]
 
+        # --- Resolution ---
         preset = RESOLUTION_PRESETS[resolution_preset]
         force_custom = preset is None
-
         if force_custom:
             width, height = custom_width, custom_height
-            print(f"[Rebels_HiDream_O1] Custom resolution forced: {width}x{height} "
-                  f"(bypassing find_closest_resolution; may produce black/garbled output)")
+            print(f"[Rebels_HiDream_O1] Custom resolution forced: {width}x{height}")
         else:
             width, height = preset
 
-        timesteps_list = DEFAULT_TIMESTEPS if scheduler_name == "flash" else None
+        # --- Reference images ---
+        ref_paths = []
+        temp_dir = None
+        ref_slots = [ref_image_1, ref_image_2, ref_image_3, ref_image_4]
+        connected = [r for r in ref_slots if r is not None]
+        if connected:
+            temp_dir = tempfile.mkdtemp(prefix="hidream_refs_")
+            for i, ref in enumerate(connected):
+                ref_paths.append(_image_to_path(ref, temp_dir, i))
+            print(f"[Rebels_HiDream_O1] {len(ref_paths)} reference image(s) loaded")
 
+        # --- Scheduler ---
+        timesteps_list = DEFAULT_TIMESTEPS if scheduler_name == "flash" else None
         extra_kwargs = {}
         if scheduler_name == "flash":
             extra_kwargs["noise_scale_start"] = noise_scale_start
             extra_kwargs["noise_scale_end"]   = noise_scale_end
             extra_kwargs["noise_clip_std"]    = noise_clip_std
 
-        # Monkey-patch the resolution snapper if the user asked for custom dims.
-        # We patch it on the pipeline module (which imported it) so the in-flight
-        # generate_image call sees the no-op version.
+        # --- Custom resolution patch ---
         patched_originals = {}
         if force_custom:
             try:
@@ -110,7 +133,7 @@ class RebelHiDreamO1Sampler:
                 model=model["model"],
                 processor=model["processor"],
                 prompt=prompt,
-                ref_image_paths=[],
+                ref_image_paths=ref_paths,
                 height=height,
                 width=width,
                 num_inference_steps=steps,
@@ -119,17 +142,19 @@ class RebelHiDreamO1Sampler:
                 timesteps_list=timesteps_list,
                 scheduler_name=scheduler_name,
                 seed=seed,
-                keep_original_aspect=False,
+                keep_original_aspect=keep_original_aspect,
                 **extra_kwargs,
             )
         finally:
-            # Always restore upstream functions, even if generate_image raised.
             if "pipeline" in patched_originals:
                 import models.pipeline as _pipeline
                 _pipeline.find_closest_resolution = patched_originals["pipeline"]
             if "utils" in patched_originals:
                 import models.utils as _utils
                 _utils.find_closest_resolution = patched_originals["utils"]
+            if temp_dir:
+                import shutil
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
         arr = np.asarray(pil_image.convert("RGB")).astype(np.float32) / 255.0
         image_tensor = torch.from_numpy(arr).unsqueeze(0)
