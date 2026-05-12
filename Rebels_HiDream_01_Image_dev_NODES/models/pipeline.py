@@ -316,7 +316,7 @@ def generate_image(
                 "vinputs": z_in,
                 "timestep": t_pixeldit.reshape(-1).to(device),
                 "token_types": sample['token_types'],
-                "use_flash_attn": True,
+                "use_flash_attn": False,
             }
             if "pixel_values" in sample: kwargs["pixel_values"] = sample["pixel_values"]
             if "image_grid_thw" in sample: kwargs["image_grid_thw"] = sample["image_grid_thw"]
