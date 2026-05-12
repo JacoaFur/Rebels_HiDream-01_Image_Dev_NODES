@@ -1,8 +1,11 @@
 """
 Rebel HiDream-O1 Loaders.
-  - RebelHiDreamO1Loader      → GGUF path (uses gguf_ops.load_gguf)
-  - RebelHiDreamO1LoaderHF    → bf16 single-file safetensors path
+  - RebelHiDreamO1Loader      → GGUF path
+  - RebelHiDreamO1LoaderHF    → bf16 single-file safetensors
 Both return a HIDREAM_O1_MODEL handle the sampler can drive.
+
+Upstream models/ (pipeline.py, qwen3_vl_transformers.py, etc.) are vendored
+directly inside this node pack — no separate clone needed.
 """
 import os
 import sys
@@ -12,6 +15,22 @@ from transformers import AutoConfig, AutoProcessor, PreTrainedTokenizerBase
 from accelerate import init_empty_weights, dispatch_model, infer_auto_device_map
 
 from .gguf_ops import load_gguf
+
+
+# ---------------------------------------------------------------------------
+# Auto-detect vendored models/ folder and add to sys.path
+# ---------------------------------------------------------------------------
+_NODE_DIR = os.path.dirname(os.path.abspath(__file__))
+_VENDORED_PIPELINE = os.path.join(_NODE_DIR, "models", "pipeline.py")
+if os.path.isfile(_VENDORED_PIPELINE):
+    if _NODE_DIR not in sys.path:
+        sys.path.insert(0, _NODE_DIR)
+else:
+    raise FileNotFoundError(
+        f"Vendored models/pipeline.py not found at {_VENDORED_PIPELINE}\n"
+        f"Copy the upstream HiDream-O1-Image/models/ folder into:\n"
+        f"  {os.path.join(_NODE_DIR, 'models')}"
+    )
 
 
 _DIFFUSION_MODELS_DIR = os.path.join(folder_paths.models_dir, "diffusion_models")
@@ -38,21 +57,6 @@ OFFLOAD_PRESETS = {
 }
 
 
-def _ensure_upstream_path(upstream_path: str):
-    if not os.path.isdir(upstream_path):
-        raise FileNotFoundError(
-            f"Upstream HiDream-O1-Image repo not found at:\n  {upstream_path}\n\n"
-            f"Clone it with:\n  git clone https://github.com/HiDream-ai/HiDream-O1-Image.git"
-        )
-    needed = os.path.join(upstream_path, "models", "pipeline.py")
-    if not os.path.isfile(needed):
-        raise FileNotFoundError(
-            f"upstream_repo_path must contain models/pipeline.py — missing at {needed}"
-        )
-    if upstream_path not in sys.path:
-        sys.path.insert(0, upstream_path)
-
-
 def _add_special_tokens(tokenizer):
     for attr, tok in _SPECIAL_TOKENS.items():
         setattr(tokenizer, attr, tok)
@@ -68,13 +72,10 @@ class RebelHiDreamO1Loader:
         return {
             "required": {
                 "gguf_name": (folder_paths.get_filename_list("hidream_o1"),),
-                "tokenizer_path": ("STRING", {
+                "config_path": ("STRING", {
                     "default": "HiDream-ai/HiDream-O1-Image-Dev",
                     "multiline": False,
-                }),
-                "upstream_repo_path": ("STRING", {
-                    "default": r"C:\Users\noahp\HiDream-O1-Image",
-                    "multiline": False,
+                    "tooltip": "HF repo id OR local folder for config.json + tokenizer files.",
                 }),
                 "device": (["cuda", "cpu"], {"default": "cuda"}),
                 "offload": (list(OFFLOAD_PRESETS.keys()), {"default": "aggressive"}),
@@ -87,7 +88,7 @@ class RebelHiDreamO1Loader:
     FUNCTION = "load"
     CATEGORY = "Rebels/HiDream-O1"
 
-    def load(self, gguf_name, tokenizer_path, upstream_repo_path, device, offload, compute_dtype):
+    def load(self, gguf_name, config_path, device, offload, compute_dtype):
         gguf_path = folder_paths.get_full_path("hidream_o1", gguf_name)
         if gguf_path is None or not os.path.isfile(gguf_path):
             raise FileNotFoundError(f"GGUF '{gguf_name}' not found in {_DIFFUSION_MODELS_DIR}")
@@ -99,11 +100,10 @@ class RebelHiDreamO1Loader:
         }[compute_dtype]
         preset = OFFLOAD_PRESETS[offload]
 
-        _ensure_upstream_path(upstream_repo_path)
         from models.qwen3_vl_transformers import Qwen3VLForConditionalGeneration
         from models.pipeline import generate_image, DEFAULT_TIMESTEPS
 
-        config = AutoConfig.from_pretrained(tokenizer_path, trust_remote_code=True)
+        config = AutoConfig.from_pretrained(config_path, trust_remote_code=True)
         with init_empty_weights():
             model = Qwen3VLForConditionalGeneration(config)
 
@@ -131,7 +131,7 @@ class RebelHiDreamO1Loader:
 
         model.eval()
 
-        processor = AutoProcessor.from_pretrained(tokenizer_path)
+        processor = AutoProcessor.from_pretrained(config_path)
         tokenizer = (
             processor
             if isinstance(processor, PreTrainedTokenizerBase)
@@ -148,7 +148,6 @@ class RebelHiDreamO1Loader:
             "device":            device,
             "dtype":             torch_dtype,
             "offload":           offload,
-            "gguf_path":         gguf_path,
         },)
 
 
@@ -166,24 +165,17 @@ class RebelHiDreamO1LoaderHF:
             ckpts = []
         return {
             "required": {
-                "safetensors_file": (ckpts if ckpts else ["<no .safetensors files in checkpoints/>"],),
+                "safetensors_file": (ckpts if ckpts else ["<no .safetensors in checkpoints/>"],),
                 "config_path": ("STRING", {
                     "default": "HiDream-ai/HiDream-O1-Image-Dev",
                     "multiline": False,
-                    "tooltip": (
-                        "HF repo id OR local folder containing config.json + tokenizer files. "
-                        "The single .safetensors file doesn't include these — they come from here."
-                    ),
-                }),
-                "upstream_repo_path": ("STRING", {
-                    "default": r"C:\Users\noahp\HiDream-O1-Image",
-                    "multiline": False,
+                    "tooltip": "HF repo id OR local folder for config.json + tokenizer files.",
                 }),
                 "dtype": (["bfloat16", "float16"], {"default": "bfloat16"}),
                 "offload": (list(OFFLOAD_PRESETS.keys()), {"default": "aggressive"}),
                 "offload_folder": ("STRING", {
-                    "default": r"D:\AI_Tools\hidream_offload",
-                    "tooltip": "Disk offload folder for layers that don't fit in VRAM+RAM. Created if missing.",
+                    "default": "hidream_offload",
+                    "tooltip": "Disk offload folder for layers that don't fit in VRAM+RAM.",
                 }),
             }
         }
@@ -193,8 +185,7 @@ class RebelHiDreamO1LoaderHF:
     FUNCTION = "load"
     CATEGORY = "Rebels/HiDream-O1"
 
-    def load(self, safetensors_file, config_path, upstream_repo_path,
-             dtype, offload, offload_folder):
+    def load(self, safetensors_file, config_path, dtype, offload, offload_folder):
         from accelerate import load_checkpoint_and_dispatch
 
         sft_path = folder_paths.get_full_path("checkpoints", safetensors_file)
@@ -207,7 +198,6 @@ class RebelHiDreamO1LoaderHF:
         torch_dtype = {"bfloat16": torch.bfloat16, "float16": torch.float16}[dtype]
         preset = OFFLOAD_PRESETS[offload]
 
-        _ensure_upstream_path(upstream_repo_path)
         from models.qwen3_vl_transformers import Qwen3VLForConditionalGeneration
         from models.pipeline import generate_image, DEFAULT_TIMESTEPS
 
@@ -252,5 +242,4 @@ class RebelHiDreamO1LoaderHF:
             "device":            "cuda",
             "dtype":             torch_dtype,
             "offload":           offload,
-            "model_path":        sft_path,
         },)
