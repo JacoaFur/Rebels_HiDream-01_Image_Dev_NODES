@@ -2,10 +2,10 @@ import torch
 import einops
 import numpy as np
 import tqdm
+import math
 from PIL import Image
 import torchvision.transforms.v2 as transforms
-# FlowUniPCMultistepScheduler generates more details than FlowMatchEulerDiscreteScheduler
-from models.fm_solvers_unipc import FlowUniPCMultistepScheduler  # noqa: E402
+from models.fm_solvers_unipc import FlowUniPCMultistepScheduler
 
 from models.flash_scheduler import FlashFlowMatchEulerDiscreteScheduler
 from models.utils import resize_pilimage, calculate_dimensions, get_rope_index_fix_point, find_closest_resolution
@@ -26,6 +26,76 @@ DEFAULT_TIMESTEPS = [
     999, 987, 974, 960, 945, 929, 913, 895, 877, 857, 836, 814, 790, 764, 737,
     707, 675, 640, 602, 560, 515, 464, 409, 347, 278, 199, 110, 8,
 ]
+
+
+# ======================================================================
+# Sigma schedule generators (match ComfyUI KSampler scheduler names)
+# ======================================================================
+def _sigmas_normal(num_steps, shift=1.0):
+    """Default linear spacing in sigma space."""
+    return None  # let the scheduler class handle it
+
+def _sigmas_simple(num_steps, shift=1.0):
+    """Linear spacing in timestep space."""
+    ts = torch.linspace(999, 1, num_steps)
+    return ts / 1000.0
+
+def _sigmas_karras(num_steps, shift=1.0):
+    """Karras et al. noise schedule."""
+    rho = 7.0
+    sigma_min, sigma_max = 0.001, 0.999
+    ramp = torch.linspace(0, 1, num_steps)
+    min_inv_rho = sigma_min ** (1.0 / rho)
+    max_inv_rho = sigma_max ** (1.0 / rho)
+    return (max_inv_rho + ramp * (min_inv_rho - max_inv_rho)) ** rho
+
+def _sigmas_exponential(num_steps, shift=1.0):
+    """Exponential spacing."""
+    sigma_min, sigma_max = 0.001, 0.999
+    return torch.exp(torch.linspace(math.log(sigma_max), math.log(sigma_min), num_steps))
+
+def _sigmas_sgm_uniform(num_steps, shift=1.0):
+    """Uniform spacing (SGM-style)."""
+    return torch.linspace(0.999, 0.001, num_steps)
+
+def _sigmas_beta(num_steps, shift=1.0):
+    """Beta distribution CDF spacing."""
+    alpha, beta_p = 0.6, 0.6
+    ramp = torch.linspace(0, 1, num_steps)
+    # Approximate beta CDF with power function
+    sigmas = 0.999 * (1.0 - ramp ** alpha) ** beta_p + 0.001
+    return sigmas
+
+SIGMA_SCHEDULE_MAP = {
+    "normal": _sigmas_normal,
+    "simple": _sigmas_simple,
+    "karras": _sigmas_karras,
+    "exponential": _sigmas_exponential,
+    "sgm_uniform": _sigmas_sgm_uniform,
+    "ddim_uniform": _sigmas_sgm_uniform,
+    "beta": _sigmas_beta,
+}
+
+
+# ======================================================================
+# Sampler name → scheduler class mapping
+# ======================================================================
+# Stochastic samplers (use noise injection)
+STOCHASTIC_SAMPLERS = {
+    "euler_ancestral", "euler_ancestral_cfg_pp",
+    "dpmpp_2s_ancestral", "dpmpp_2s_ancestral_cfg_pp",
+    "dpmpp_sde", "dpmpp_sde_gpu",
+    "dpmpp_2m_sde", "dpmpp_2m_sde_gpu",
+    "dpmpp_3m_sde", "dpmpp_3m_sde_gpu",
+    "ddpm",
+}
+
+# UniPC-family samplers
+UNIPC_SAMPLERS = {"uni_pc", "uni_pc_bh2", "deis"}
+
+# Everything else uses Euler-based scheduler
+# (euler, heun, dpm_2, dpmpp_2m, lcm, ddim, ipndm, etc.)
+
 
 def build_t2i_text_sample(prompt, height, width, tokenizer, processor, model_config):
     image_token_id = model_config.image_token_id
@@ -76,20 +146,30 @@ def build_t2i_text_sample(prompt, height, width, tokenizer, processor, model_con
         'vinput_mask': vinput_mask,
     }
 
-def build_scheduler(num_inference_steps, timesteps_list, shift, device, scheduler_name="default"):
-    if scheduler_name == "flash":
-        sched = FlashFlowMatchEulerDiscreteScheduler(
-            num_train_timesteps=1000, shift=shift, use_dynamic_shifting=False)
-    elif scheduler_name == "default":
+
+def build_scheduler(num_inference_steps, shift, device,
+                    sampler_name="euler", scheduler_name="normal"):
+    """Build scheduler based on sampler + scheduler names from KSampler."""
+    # Pick scheduler class based on sampler family
+    if sampler_name in UNIPC_SAMPLERS:
         sched = FlowUniPCMultistepScheduler(use_dynamic_shifting=False, shift=shift)
     else:
-        raise ValueError(f"Unknown scheduler_name={scheduler_name!r}")
+        sched = FlashFlowMatchEulerDiscreteScheduler(
+            num_train_timesteps=1000, shift=shift, use_dynamic_shifting=False)
+
     sched.set_timesteps(num_inference_steps, device=device)
-    if timesteps_list is not None:
-        sched.timesteps = torch.tensor(timesteps_list, device=device, dtype=torch.long)
-        sigmas = [t.item() / 1000.0 for t in sched.timesteps]
-        sigmas.append(0.0)
-        sched.sigmas = torch.tensor(sigmas, device=device)
+
+    # Apply sigma schedule
+    sigma_fn = SIGMA_SCHEDULE_MAP.get(scheduler_name, _sigmas_normal)
+    custom_sigmas = sigma_fn(num_inference_steps, shift)
+
+    if custom_sigmas is not None:
+        timesteps = (custom_sigmas * 1000.0).long().clamp(1, 999)
+        sched.timesteps = timesteps.to(device)
+        sigmas_list = [s.item() for s in custom_sigmas]
+        sigmas_list.append(0.0)
+        sched.sigmas = torch.tensor(sigmas_list, device=device)
+
     return sched
 
 
@@ -98,6 +178,21 @@ def clamp_tensor(tensor, percentage = 0.1):
     upper_bound = torch.quantile(tensor.float(), 1 - percentage)
     src_dtype = tensor.dtype
     return torch.clamp(tensor.float(), min=lower_bound, max=upper_bound).to(src_dtype)
+
+
+def _do_sched_step(sched, model_output, step_t, z, sampler_name,
+                   noise_scale=0.0, noise_clip_std=0.0):
+    """Single scheduler step, handling stochastic vs deterministic."""
+    is_stochastic = sampler_name in STOCHASTIC_SAMPLERS
+    if not isinstance(sched, FlowUniPCMultistepScheduler):
+        _s_noise = noise_scale if is_stochastic else 0.0
+        _clip = noise_clip_std if is_stochastic else 0.0
+        return sched.step(model_output.float(), step_t.to(dtype=torch.float32),
+                          z.float(), s_noise=_s_noise, noise_clip_std=_clip,
+                          return_dict=False)[0]
+    else:
+        return sched.step(model_output.float(), step_t.to(dtype=torch.float32),
+                          z.float(), return_dict=False)[0]
 
 
 @torch.no_grad()
@@ -111,25 +206,25 @@ def generate_image(
         num_inference_steps: int = 50,
         guidance_scale: float = 5.0,
         shift: float = 3.0,
-        timesteps_list=None,
-        scheduler_name: str = "default",
+        sampler_name: str = "euler",
+        scheduler_name: str = "normal",
         seed: int = 42,
         noise_scale_start: float = NOISE_SCALE,
         noise_scale_end: float = NOISE_SCALE,
         noise_clip_std: float = 0.0,
+        seam_smooth_steps: int = 0,
+        seam_smooth_strength: float = 0.5,
         keep_original_aspect: bool = False,
         callback=None,
+        # Legacy compat
+        timesteps_list=None,
+        timestep_schedule=None,
 ) -> Image.Image:
     device = model.device
     dtype = torch.bfloat16
     model_config = model.config
     tokenizer = processor.tokenizer if hasattr(processor, 'tokenizer') else processor
 
-    # When `keep_original_aspect` is enabled and exactly one reference image is
-    # provided, resize the reference to max_size=2048 (patch-aligned) and derive
-    # the target image dimensions from the resized reference. This bypasses the
-    # predefined-resolution snapping so the output preserves the reference's
-    # original aspect ratio.
     preresized_ref_pil = None
     if keep_original_aspect and ref_image_paths and len(ref_image_paths) == 1:
         pil_orig = Image.open(ref_image_paths[0]).convert("RGB")
@@ -158,14 +253,14 @@ def generate_image(
         uncond_sample = None
         if guidance_scale > 1.0:
             uncond_sample = build_t2i_text_sample(" ", height, width, tokenizer, processor, model_config)
-        
+
         def to_device(s):
             return {k: (v.to(device) if torch.is_tensor(v) else v) for k, v in s.items()}
-        
+
         cond_sample = to_device(cond_sample)
         if uncond_sample is not None:
             uncond_sample = to_device(uncond_sample)
-            
+
         ref_patches = None
         tgt_image_len = (height // PATCH_SIZE) * (width // PATCH_SIZE)
         samples = [cond_sample]
@@ -176,7 +271,7 @@ def generate_image(
         video_token_id = model_config.video_token_id
         vision_start_token_id = model_config.vision_start_token_id
         spatial_merge_size = model_config.vision_config.spatial_merge_size
-        
+
         if preresized_ref_pil is not None:
             ref_pils = [preresized_ref_pil]
         else:
@@ -191,9 +286,6 @@ def generate_image(
 
         ref_pils_resized, ref_images = [], []
         for pil in ref_pils:
-            # Skip resizing when caller already produced a patch-aligned ref via
-            # `keep_original_aspect` — re-running resize_pilimage on it would
-            # upscale (since max_size == max(width, height) of the resized ref).
             if preresized_ref_pil is not None and pil is preresized_ref_pil:
                 pil_r = pil
             else:
@@ -230,11 +322,11 @@ def generate_image(
         captions = [prompt]
         if guidance_scale > 1.0:
             captions.append(" ")
-            
+
         for caption in captions:
             boi_token = getattr(tokenizer, "boi_token", "<|boi_token|>")
             tms_token = getattr(tokenizer, "tms_token", "<|tms_token|>")
-            
+
             content = [{"type": "image"} for _ in range(K)]
             content.append({"type": "text", "text": caption})
             messages = [{"role": "user", "content": content}]
@@ -294,7 +386,7 @@ def generate_image(
     ).to(device, dtype)
     z = einops.rearrange(noise, 'B C (H p1) (W p2) -> B (H W) (C p1 p2)', p1=PATCH_SIZE, p2=PATCH_SIZE)
 
-    sched = build_scheduler(num_inference_steps, timesteps_list, shift, device, scheduler_name)
+    sched = build_scheduler(num_inference_steps, shift, device, sampler_name, scheduler_name)
 
     num_steps = len(sched.timesteps)
     if num_steps > 1:
@@ -322,16 +414,14 @@ def generate_image(
             if "image_grid_thw" in sample: kwargs["image_grid_thw"] = sample["image_grid_thw"]
 
             outputs = model(**kwargs)
-            
+
         x_pred = outputs.x_pred
-        # x_pred = clamp_tensor(x_pred, percentage = 0.01)
         if ref_patches is None:
             return x_pred[0, sample['vinput_mask'][0]].unsqueeze(0)
         else:
             return x_pred[0, sample['vinput_mask'][0]][:tgt_image_len].unsqueeze(0)
 
     def _decode_x0_preview(x0_pred):
-        """Convert a model-predicted x_0 (patch layout, [-1,1]) to a PIL image."""
         img_t = (x0_pred.float() + 1) / 2
         img_t = einops.rearrange(
             img_t.cpu(), 'B (H W) (C p1 p2) -> B C (H p1) (W p2)',
@@ -359,7 +449,7 @@ def generate_image(
             vinputs = torch.cat([z, ref_patches], dim=1)
             x_vis_list = [forward_once(sample, vinputs, t_pixeldit) for sample in samples]
             x_vis_stacked = torch.cat(x_vis_list, dim=0)
-            
+
             z_rep = z.expand(len(samples), -1, -1)
             v_pred = (x_vis_stacked.to(dtype=torch.float32) - z_rep.to(dtype=torch.float32)) / sigma
 
@@ -372,16 +462,39 @@ def generate_image(
             preview_x0 = x_vis_list[0]
 
         model_output = -v_guided
-        # model_output = clamp_tensor(model_output, percentage = 0.05)
-        if scheduler_name == "flash":
-            z = sched.step(model_output.float(), step_t.to(dtype=torch.float32), z.float(), s_noise=noise_scale_schedule[step_idx], noise_clip_std=noise_clip_std, return_dict=False)[0].to(dtype)
-        else:
-            z = sched.step(model_output.float(), step_t.to(dtype=torch.float32), z.float(), return_dict=False)[0].to(dtype)
+        z = _do_sched_step(sched, model_output, step_t, z, sampler_name,
+                           noise_scale=noise_scale_schedule[step_idx],
+                           noise_clip_std=noise_clip_std).to(dtype)
+
+        # --- SEAM SMOOTHING ---
+        if seam_smooth_steps > 0 and step_idx >= (num_steps - seam_smooth_steps):
+            z_img = einops.rearrange(z, 'B (H W) C -> B C H W', H=h_patches, W=w_patches)
+            shift_h = h_patches // 2
+            shift_w = w_patches // 2
+            z_shifted = torch.roll(z_img, shifts=(shift_h, shift_w), dims=(2, 3))
+            z_s = einops.rearrange(z_shifted, 'B C H W -> B (H W) C')
+
+            if ref_patches is None:
+                x_pred_s = forward_once(samples[0], z_s.clone(), t_pixeldit)
+                v_s = (x_pred_s.to(dtype=torch.float32) - z_s.to(dtype=torch.float32)) / sigma
+            else:
+                vinputs_s = torch.cat([z_s, ref_patches], dim=1)
+                x_pred_s = forward_once(samples[0], vinputs_s, t_pixeldit)
+                v_s = (x_pred_s.to(dtype=torch.float32) - z_s.to(dtype=torch.float32)) / sigma
+
+            model_output_s = -v_s
+            z_s = _do_sched_step(sched, model_output_s, step_t, z_s, sampler_name,
+                                 noise_scale=noise_scale_schedule[step_idx],
+                                 noise_clip_std=noise_clip_std).to(dtype)
+
+            z_s_img = einops.rearrange(z_s, 'B (H W) C -> B C H W', H=h_patches, W=w_patches)
+            z_unshifted = torch.roll(z_s_img, shifts=(-shift_h, -shift_w), dims=(2, 3))
+            z_unshifted = einops.rearrange(z_unshifted, 'B C H W -> B (H W) C')
+
+            z = (1.0 - seam_smooth_strength) * z + seam_smooth_strength * z_unshifted
 
         if callback is not None:
             try:
-                # Pass a closure that captures the current step's x0 prediction.
-                # Use a default-arg binding to avoid late-binding issues.
                 callback(step_idx, len(sched.timesteps),
                          lambda x0=preview_x0: _decode_x0_preview(x0))
             except Exception:
