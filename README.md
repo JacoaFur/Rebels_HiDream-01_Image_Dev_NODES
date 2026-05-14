@@ -1,13 +1,13 @@
 <img width="1517" height="905" alt="Screenshot (116)" src="https://github.com/user-attachments/assets/84989f70-01ff-4329-951b-35a2f10f721f" />
 
 
-#Rebels_HiDream-01_Image_Dev_NODES
+# Rebels_HiDream-01_Image_Dev_NODES
 
 Now featuring full Sampler/Scheduler support, Multi-Reference Editing, and built-in Seam Smoothing to eliminate tiling artifacts.
 
 This repository provides high-performance custom ComfyUI nodes for running the HiDream-01-Image-Dev models (both BF16 and GGUF). As a VAE-less, Pixel-Level Unified Transformer, HiDream-O1 generates raw pixels token-by-token. These nodes are optimized for local hardware, utilizing upfront dequantization and aggressive system RAM offloading—perfect for 8GB VRAM cards like the RTX 3070 by leveraging your 16GB of system RAM.
 
-#🚀 Key Features
+# 🚀 Key Features
 
 - Multi-Reference Editing: Inject up to 4 reference images to guide your generations.
 
@@ -19,17 +19,17 @@ This repository provides high-performance custom ComfyUI nodes for running the H
 
 - Seam Visualizer: Heatmap-based analysis to monitor and perfect generation consistency.
 
-📦 Prerequisites
+# 📦 Prerequisites
 Clone Upstream Repo:
 git clone [https://github.com/HiDream-ai/HiDream-O1-Image.git](https://github.com/HiDream-ai/HiDream-O1-Image.git)
 
-Download weights:
+# Download weights:
 
 BF16: Place in ComfyUI/models/checkpoints/
 
 GGUF: Place in ComfyUI/models/diffusion_models/
 
-🛠️ Installation
+# 🛠️ Installation
 [!IMPORTANT]
 DO NOT install or run these nodes from a OneDrive-synced folder. Ensure your ComfyUI installation is on a strict local system drive (C: or D:) to avoid pathing and virtual environment errors.
 
@@ -43,7 +43,7 @@ Portable: ../../../python_embeded/python.exe -m pip install -r requirements.txt
 
 Standard: pip install -r requirements.txt
 
-🧩 Node Documentation
+# 🧩 Node Documentation
 1. Rebel HiDream-O1 Loaders (GGUF & BF16)
 offload:
 
@@ -92,7 +92,7 @@ Colormap: Inferno, Magma, or Viridis for clear contrast.
 
 Usage: Connect to the IMAGE output of the sampler to dial in your seam_smooth settings.
 
-⚠️ Known Behaviors
+# ⚠️ Known Behaviors
 Compute Times: Because this is a pixel-transformer rendering 2048x2048 images token-by-token without a VAE, expect significantly longer generation times compared to latent models like Flux or SDXL.
 
 Resolution Snapping: Entering custom resolutions (e.g., 512x512) will result in the model snapping to its pre-trained position embeddings (typically 2048x2048).
