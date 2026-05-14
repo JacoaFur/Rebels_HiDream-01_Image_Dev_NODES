@@ -71,7 +71,6 @@ Resolution Preset: 2048x2048 is native. Lower resolutions (1024x1024) will autom
 
 Sampler/Scheduler: Supports all native options.
 
-Pro Tip: Use the "detail" scheduler to fix "melted" looks. It provides ~33% more steps below sigma 0.3 to lock in micro-textures like pores and grit.
 
 CFG: For the Dev model, 0.0 is the recipe default. For higher texture/guidance with the detail scheduler, 5.0 is a strong starting point.
 
