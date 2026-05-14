@@ -10,13 +10,6 @@ from models.fm_solvers_unipc import FlowUniPCMultistepScheduler
 from models.flash_scheduler import FlashFlowMatchEulerDiscreteScheduler
 from models.utils import resize_pilimage, calculate_dimensions, get_rope_index_fix_point, find_closest_resolution
 
-# Rebel seam smoothing module — sibling file in the same node package
-try:
-    from .seam_smoothing import apply_seam_smoothing, SHIFT_MODES, SCHEDULES
-except ImportError:
-    # Fallback for when pipeline.py is loaded via the vendored models/ path
-    from seam_smoothing import apply_seam_smoothing, SHIFT_MODES, SCHEDULES
-
 TIMESTEP_TOKEN_NUM = 1
 NOISE_SCALE = 8.0
 T_EPS = 0.001
@@ -73,25 +66,6 @@ def _sigmas_beta(num_steps, shift=1.0):
     sigmas = 0.999 * (1.0 - ramp ** alpha) ** beta_p + 0.001
     return sigmas
 
-def _sigmas_detail(num_steps, shift=1.0):
-    """Detail-emphasis schedule. Shifts step density toward the low-sigma
-    cleanup phase where high-frequency content (pores, grain, fine edges)
-    forms in flow-matching models.
-
-    The default HiDream-01 timestep ladder sprints through the final third
-    (199 → 110 → 8 is a gap of 102 in one step). This schedule reshapes a
-    linear ramp via a power<1 warp so the last quarter of steps covers a
-    much narrower sigma band — more iterations per unit of sigma in the
-    range where detail actually forms.
-
-    Boundary conditions preserved (starts ~0.999, ends ~0.001). No
-    architectural changes, just a different sigma curve."""
-    ramp = torch.linspace(0.0, 1.0, num_steps)
-    # power < 1 concentrates samples at high ramp values → low sigma values
-    warped = ramp ** 0.65
-    sigmas = 0.999 - 0.998 * warped
-    return sigmas.clamp(0.001, 0.999)
-
 SIGMA_SCHEDULE_MAP = {
     "normal": _sigmas_normal,
     "simple": _sigmas_simple,
@@ -100,7 +74,6 @@ SIGMA_SCHEDULE_MAP = {
     "sgm_uniform": _sigmas_sgm_uniform,
     "ddim_uniform": _sigmas_sgm_uniform,
     "beta": _sigmas_beta,
-    "detail": _sigmas_detail,
 }
 
 
@@ -241,12 +214,6 @@ def generate_image(
         noise_clip_std: float = 0.0,
         seam_smooth_steps: int = 0,
         seam_smooth_strength: float = 0.5,
-        seam_schedule: str = "constant",
-        seam_shift_mode: str = "static",
-        seam_multiscale: bool = False,
-        seam_cfg_aware: bool = False,
-        seam_adaptive_threshold: float = 0.0,
-        seam_callback=None,
         keep_original_aspect: bool = False,
         callback=None,
         # Legacy compat
@@ -501,35 +468,24 @@ def generate_image(
 
         # --- SEAM SMOOTHING ---
         if seam_smooth_steps > 0 and step_idx >= (num_steps - seam_smooth_steps):
-            smoothing_step_idx = step_idx - (num_steps - seam_smooth_steps)
-            z, seam_info = apply_seam_smoothing(
-                z=z,
-                samples=samples,
-                ref_patches=ref_patches,
-                t_pixeldit=t_pixeldit,
-                sigma=sigma,
-                dtype=dtype,
-                h_patches=h_patches,
-                w_patches=w_patches,
-                smoothing_step_idx=smoothing_step_idx,
-                total_smoothing_steps=seam_smooth_steps,
-                base_strength=seam_smooth_strength,
-                schedule=seam_schedule,
-                shift_mode=seam_shift_mode,
-                forward_once=forward_once,
-                guidance_scale=guidance_scale,
-                tgt_image_len=tgt_image_len,
-                multiscale=seam_multiscale,
-                cfg_aware=seam_cfg_aware,
-                adaptive_threshold=seam_adaptive_threshold,
-            )
-            z = z.to(dtype)
+            z_img = einops.rearrange(z, 'B (H W) C -> B C H W', H=h_patches, W=w_patches)
+            shift_h = h_patches // 2
+            shift_w = w_patches // 2
+            z_shifted = torch.roll(z_img, shifts=(shift_h, shift_w), dims=(2, 3))
+            z_s = einops.rearrange(z_shifted, 'B C H W -> B (H W) C')
 
-            if seam_callback is not None:
-                try:
-                    seam_callback(step_idx, smoothing_step_idx, seam_info)
-                except Exception:
-                    pass
+            if ref_patches is None:
+                x_pred_s = forward_once(samples[0], z_s.clone(), t_pixeldit)
+            else:
+                vinputs_s = torch.cat([z_s, ref_patches], dim=1)
+                x_pred_s = forward_once(samples[0], vinputs_s, t_pixeldit)
+
+            z_s_denoised = x_pred_s.to(dtype)
+            z_s_img = einops.rearrange(z_s_denoised, 'B (H W) C -> B C H W', H=h_patches, W=w_patches)
+            z_unshifted = torch.roll(z_s_img, shifts=(-shift_h, -shift_w), dims=(2, 3))
+            z_unshifted = einops.rearrange(z_unshifted, 'B C H W -> B (H W) C')
+
+            z = (1.0 - seam_smooth_strength) * z + seam_smooth_strength * z_unshifted
 
         if callback is not None:
             try:
