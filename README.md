@@ -1,4 +1,5 @@
-<img width="1691" height="800" alt="Screenshot (112)" src="https://github.com/user-attachments/assets/e8a1ef54-5304-4b8e-831f-766de29afdd0" />
+<img width="1517" height="905" alt="Screenshot (116)" src="https://github.com/user-attachments/assets/84989f70-01ff-4329-951b-35a2f10f721f" />
+
 
 Rebels_HiDream-01_Image_Dev_NODES
 Now featuring full Sampler/Scheduler support, Multi-Reference Editing, and built-in Seam Smoothing to eliminate tiling artifacts.
