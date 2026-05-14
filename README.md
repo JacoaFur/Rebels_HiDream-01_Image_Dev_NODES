@@ -1,21 +1,23 @@
 <img width="1517" height="905" alt="Screenshot (116)" src="https://github.com/user-attachments/assets/84989f70-01ff-4329-951b-35a2f10f721f" />
 
 
-Rebels_HiDream-01_Image_Dev_NODES
+#Rebels_HiDream-01_Image_Dev_NODES
+
 Now featuring full Sampler/Scheduler support, Multi-Reference Editing, and built-in Seam Smoothing to eliminate tiling artifacts.
 
 This repository provides high-performance custom ComfyUI nodes for running the HiDream-01-Image-Dev models (both BF16 and GGUF). As a VAE-less, Pixel-Level Unified Transformer, HiDream-O1 generates raw pixels token-by-token. These nodes are optimized for local hardware, utilizing upfront dequantization and aggressive system RAM offloading—perfect for 8GB VRAM cards like the RTX 3070 by leveraging your 16GB of system RAM.
 
-🚀 Key Features
-Multi-Reference Editing: Inject up to 4 reference images to guide your generations.
+#🚀 Key Features
 
-Integrated LoRA Stack: Manage up to 4 LoRAs with fingerprint-based no-op detection.
+- Multi-Reference Editing: Inject up to 4 reference images to guide your generations.
 
-Advanced Seam Smoothing: Built-in "Patch Model Smoothing" logic to fix bad tiling and textures.
+- Integrated LoRA Stack: Manage up to 4 LoRAs with fingerprint-based no-op detection.
 
-Expanded Sampler Support: Full flexibility with native ComfyUI samplers and schedulers.
+- Advanced Seam Smoothing: Built-in "Patch Model Smoothing" logic to fix bad tiling and textures.
 
-Seam Visualizer: Heatmap-based analysis to monitor and perfect generation consistency.
+- Expanded Sampler Support: Full flexibility with native ComfyUI samplers and schedulers.
+
+- Seam Visualizer: Heatmap-based analysis to monitor and perfect generation consistency.
 
 📦 Prerequisites
 Clone Upstream Repo:
