@@ -1,3 +1,4 @@
+<img width="1691" height="800" alt="Screenshot (112)" src="https://github.com/user-attachments/assets/e8a1ef54-5304-4b8e-831f-766de29afdd0" />
 # Rebels_HiDream-01_Image_Dev_NODES
 
 
@@ -20,7 +21,7 @@ run the command "git pull" to update the nodes.
 
 # node set to run the HiDream-01 Image Dev GGUF from smthem and the comfy-org bf16 model
 
-<img width="2048" height="2048" alt="BF16__00017_" src="https://github.com/user-attachments/assets/8c2370f1-a8b9-44d8-ad96-6d752a3eed0f" />
+
 
 
 
