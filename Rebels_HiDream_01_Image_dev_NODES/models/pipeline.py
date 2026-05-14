@@ -476,18 +476,12 @@ def generate_image(
 
             if ref_patches is None:
                 x_pred_s = forward_once(samples[0], z_s.clone(), t_pixeldit)
-                v_s = (x_pred_s.to(dtype=torch.float32) - z_s.to(dtype=torch.float32)) / sigma
             else:
                 vinputs_s = torch.cat([z_s, ref_patches], dim=1)
                 x_pred_s = forward_once(samples[0], vinputs_s, t_pixeldit)
-                v_s = (x_pred_s.to(dtype=torch.float32) - z_s.to(dtype=torch.float32)) / sigma
 
-            model_output_s = -v_s
-            z_s = _do_sched_step(sched, model_output_s, step_t, z_s, sampler_name,
-                                 noise_scale=noise_scale_schedule[step_idx],
-                                 noise_clip_std=noise_clip_std).to(dtype)
-
-            z_s_img = einops.rearrange(z_s, 'B (H W) C -> B C H W', H=h_patches, W=w_patches)
+            z_s_denoised = x_pred_s.to(dtype)
+            z_s_img = einops.rearrange(z_s_denoised, 'B (H W) C -> B C H W', H=h_patches, W=w_patches)
             z_unshifted = torch.roll(z_s_img, shifts=(-shift_h, -shift_w), dims=(2, 3))
             z_unshifted = einops.rearrange(z_unshifted, 'B C H W -> B (H W) C')
 
