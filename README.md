@@ -1,185 +1,97 @@
 <img width="1691" height="800" alt="Screenshot (112)" src="https://github.com/user-attachments/assets/e8a1ef54-5304-4b8e-831f-766de29afdd0" />
 
-# Rebels_HiDream-01_Image_Dev_NODES
+Rebels_HiDream-01_Image_Dev_NODES
+Now featuring full Sampler/Scheduler support, Multi-Reference Editing, and built-in Seam Smoothing to eliminate tiling artifacts.
 
+This repository provides high-performance custom ComfyUI nodes for running the HiDream-01-Image-Dev models (both BF16 and GGUF). As a VAE-less, Pixel-Level Unified Transformer, HiDream-O1 generates raw pixels token-by-token. These nodes are optimized for local hardware, utilizing upfront dequantization and aggressive system RAM offloading—perfect for 8GB VRAM cards like the RTX 3070 by leveraging your 16GB of system RAM.
 
+🚀 Key Features
+Multi-Reference Editing: Inject up to 4 reference images to guide your generations.
 
-NOW SUPPORTS ALL SAMPLER/SCHEDULERS AND HAS PATCH MODEL SMOOTHING BUILT IN TO CORRECT TILING!
+Integrated LoRA Stack: Manage up to 4 LoRAs with fingerprint-based no-op detection.
 
-- added all samplers and schedulers for more flexibility in generations.
-- added the patch model smoothing abilities to the sampler node to remove bad tiling and textures from outputs. 
+Advanced Seam Smoothing: Built-in "Patch Model Smoothing" logic to fix bad tiling and textures.
 
+Expanded Sampler Support: Full flexibility with native ComfyUI samplers and schedulers.
 
-NOW SUPPORTS MULTI-REFERENCE EDITING!
-
-- added Ability to edit with up to 4 reference images.
-
-open a command prompt in the "Rebels_HiDream_01_Image_dev_NODES" folder.
-
-run the command "git pull" to update the nodes.
-
-
-
-# node set to run the HiDream-01 Image Dev GGUF from smthem and the comfy-org bf16 model
-
-
-
-
-
-
-
-
-# Rebel HiDream-O1 bf16 and GGUF Nodes for ComfyUI
-Created by Rebel AI
-
-This repository provides custom ComfyUI nodes to run HiDream-O1-Image-Dev GGUF models locally.
-
-HiDream-O1 is a VAE-less, Pixel-Level Unified Transformer. Because it generates raw pixels token-by-token at massive resolutions, running it locally requires careful memory management. These nodes feature upfront dequantization (converting GGUF weights to native PyTorch tensors in system RAM during the load phase) to completely bypass NumPy single-threaded CPU bottlenecks during generation, allowing your GPU to run at maximum efficiency.
+Seam Visualizer: Heatmap-based analysis to monitor and perfect generation consistency.
 
 📦 Prerequisites
-Before installing the custom nodes, you need the upstream model code and the weights.
+Clone Upstream Repo:
+git clone [https://github.com/HiDream-ai/HiDream-O1-Image.git](https://github.com/HiDream-ai/HiDream-O1-Image.git)
 
-Clone the Upstream HiDream-O1 Repo:
-The nodes rely on the official pipeline logic. Clone this anywhere on your local system:
+Download weights:
 
+BF16: Place in ComfyUI/models/checkpoints/
 
-git clone https://github.com/HiDream-ai/HiDream-O1-Image.git
-
-Download the bf16 Model:
-https://huggingface.co/Comfy-Org/HiDream-O1-Image/tree/main/checkpoints
-
-Place the bf16 file in CHECKPOINTS: ComfyUI/models/checkpoints/
-
-
-Download the GGUF Model:
-https://huggingface.co/smthem/HiDream-O1-Image-Dev/blob/main/HiDream-O1-Image-Dev-Q6_K.gguf
-
-Place the .gguf file in DIFFUSION_MODELS: ComfyUI/models/diffusion_models/
+GGUF: Place in ComfyUI/models/diffusion_models/
 
 🛠️ Installation
-Option 1: ComfyUI Windows Portable
-Note: Ensure your ComfyUI portable installation is located on a strict local system drive (e.g., C:\ or D:\). Do not install or run these nodes from a OneDrive-synced folder, as it will cause virtual environment and pathing errors.
+[!IMPORTANT]
+DO NOT install or run these nodes from a OneDrive-synced folder. Ensure your ComfyUI installation is on a strict local system drive (C: or D:) to avoid pathing and virtual environment errors.
 
-Open a command prompt and navigate to your portable custom nodes directory:
+Navigate to ComfyUI/custom_nodes.
 
+git clone [https://github.com/RealRebelAI/Rebels_HiDream-01_Image_Dev_NODES.git](https://github.com/RealRebelAI/Rebels_HiDream-01_Image_Dev_NODES.git)
 
-cd \ComfyUI_windows_portable\ComfyUI\custom_nodes
+Install requirements:
 
-Clone this repository:
+Portable: ../../../python_embeded/python.exe -m pip install -r requirements.txt
 
-git clone (https://github.com/RealRebelAI/Rebels_HiDream-01_Image_Dev_NODES.git)
-
-Install the requirements using the embedded Python environment:
-
-
-cd Rebels_HiDream_01_Image_Dev_NODES
-
-"../../../python_embeded/python.exe" -m pip install -r requirements.txt
-
-Option 2: Desktop / Standard Python Environment
-
-Navigate to your ComfyUI custom nodes directory:
-
-cd ComfyUI/custom_nodes
-
-Clone this repository:
-
-
-git clone https://github.com/RealRebelAI/Rebels_HiDream-01_Image_Dev_NODES.git
-
-
-
-Activate your ComfyUI virtual environment and install the requirements:
-
-cd Rebels_HiDream_01_Image_Dev_NODES
-pip install -r requirements.txt
+Standard: pip install -r requirements.txt
 
 🧩 Node Documentation
-Rebel HiDream-O1 Loader (GGUF)
-Loads the GGUF model and performs upfront dequantization.
-
-gguf_name: Select your .gguf model from the diffusion_models folder.
-
-tokenizer_path: Default is HiDream-ai/HiDream-O1-Image-Dev. It will automatically fetch the tokenizer config from Hugging Face.
-
-upstream_repo_path: The absolute local path to where you cloned the HiDream-O1-Image repository in the prerequisites (e.g., C:\Users\name\HiDream-O1-Image).
-
-device: Set to cuda for GPU acceleration.
-
+1. Rebel HiDream-O1 Loaders (GGUF & BF16)
 offload:
 
-aggressive: Heavily utilizes system RAM offloading (Recommended for 8GB VRAM cards like the RTX 3070).
+aggressive: Recommended for 8GB VRAM cards. Moves model weights to system RAM.
 
-balanced: Standard memory splitting.
+balanced: Splits weights between VRAM and system RAM.
 
-minimal: Keeps most of the model in VRAM.
+Note: The GGUF loader will pause at 100% while unpacking bytes into PyTorch tensors. This is expected and prevents CPU bottlenecks during generation.
 
-Note: The loader will hang for a moment at 100% while it unpacks the uint8 GGUF bytes into native PyTorch tensors in your system RAM. This is normal and prevents the CPU from bottlenecking your GPU during the actual generation steps.
+2. Rebel HiDream-O1 LoRA Stack Injector
+Inject multiple LoRAs into the model stream.
 
-Rebel HiDream-O1 Sampler
-Connect the model output from the Loader here.
+Slots: 4 LoRA slots with independent strength and bypass toggles.
 
-steps: 20-30 is the recommended sweet spot.
+Efficiency: Uses fingerprint-based detection to ensure no-op slots don't impact compute time.
 
-cfg: Keep 0.0 Higher CFG combined with heavy styling tags can cause "deep-fried" or crushed-shadow artifacts due to the literal pixel-rendering nature of the model.
+Compatibility: If using aggressive offloading on BF16 paths, use the Seam Visualizer to confirm LoRA effects, as accelerate may occasionally reset in-place merges.
 
-shift: keep at 3.0. Controls the timestep scheduling curve. 
+3. Rebel HiDream-O1 Sampler
+The core engine of the suite, now heavily updated for precision and texture control.
 
-scheduler_name:
+Multi-Ref Inputs: ref_image_1 through ref_image_4.
 
-MUST USE:
+Resolution Preset: 2048x2048 is native. Lower resolutions (1024x1024) will automatically "snap" to the closest supported token sequence length.
 
-flash: Injects specific noise profiles. Note: The noise_scale_start, noise_scale_end, and noise_clip_std parameters only apply if the scheduler is set to flash.
+Sampler/Scheduler: Supports all native options.
 
-⚠️ Known Limitations & Behaviors
-Resolution Snapping: HiDream-O1 enforces strict token sequence lengths based on its pre-trained position embeddings. If you input a lower resolution (like 512x512 or 1024x1024), the upstream pipeline will automatically "snap" and force the generation to 2048x2048.
+Pro Tip: Use the "detail" scheduler to fix "melted" looks. It provides ~33% more steps below sigma 0.3 to lock in micro-textures like pores and grit.
 
-Compute Times: Because the model renders a raw 2048x2048 image pixel-by-pixel without a VAE, generation times will be significantly longer than standard latent models (like SDXL or Flux).
+CFG: For the Dev model, 0.0 is the recipe default. For higher texture/guidance with the detail scheduler, 5.0 is a strong starting point.
 
-Prompting Style: Avoid stacking heavy texture tags (e.g., "8k resolution, ultra-detailed, gritty textures") unless you want a heavily illustrated look. For photorealism, use clean, simple photographic terms.
+Seam Smoothing Suite:
 
+seam_smooth_steps: Number of steps to apply patch smoothing.
 
+seam_smooth_strength: Intensity of the tiling correction.
 
-🧩 Node Documentation (BF16 / Safetensors)
-Rebel HiDream-O1 Loader (Safetensors)
-Loads the pure, uncompressed bfloat16 safetensors model directly, preserving 100% of the original mathematical precision to eliminate quantization artifacts.
+seam_adaptive_threshold: Dynamically targets inconsistent patches.
 
-model_name: Select your .safetensors model from the models/checkpoints/ folder.
+4. Rebel HiDream-O1 Seam Visualizer
+Analyze the "health" of your generation's tiling.
 
-tokenizer_path: Default is HiDream-ai/HiDream-O1-Image-Dev. It will automatically fetch the tokenizer config from Hugging Face.
+Heatmap: Generates an overlay showing which patches are struggling with consistency.
 
-upstream_repo_path: The absolute local path to where you cloned the HiDream-O1-Image repository in the prerequisites (e.g., C:\Users\name\HiDream-O1-Image).
+Colormap: Inferno, Magma, or Viridis for clear contrast.
 
-device: Set to cuda for GPU acceleration.
+Usage: Connect to the IMAGE output of the sampler to dial in your seam_smooth settings.
 
-offload:
+⚠️ Known Behaviors
+Compute Times: Because this is a pixel-transformer rendering 2048x2048 images token-by-token without a VAE, expect significantly longer generation times compared to latent models like Flux or SDXL.
 
-aggressive: Heavily utilizes system RAM offloading (Recommended for 8GB VRAM cards like the RTX 3070).
+Resolution Snapping: Entering custom resolutions (e.g., 512x512) will result in the model snapping to its pre-trained position embeddings (typically 2048x2048).
 
-balanced: Standard memory splitting.
-
-minimal: Keeps most of the model in VRAM.
-
-Note: The loader will take a moment to memory-map the massive 16.4GB bfloat16 file and balance it across your system RAM and VRAM. Because this workflow uses the native uncompressed weights instead of heavily quantized blocks, the model is much more sensitive to guidance.
-
-Rebel HiDream-O1 Sampler
-Connect the model output from the Loader here.
-
-steps: 20-30 is the recommended sweet spot.
-
-cfg: Keep at 0.0 Higher CFG combined with heavy styling tags can cause "deep-fried" or crushed-shadow artifacts due to the literal pixel-rendering nature of the model.
-
-shift: Keep at 3.0
-
-scheduler name
-
-MUST USE:
-
-flash: Injects specific noise profiles. Note: The noise_scale_start, noise_scale_end, and noise_clip_std parameters only apply if the scheduler is set to flash.
-
-⚠️ Known Limitations & Behaviors
-Resolution Snapping: HiDream-O1 enforces strict token sequence lengths based on its pre-trained position embeddings. If you input a lower resolution (like 512x512 or 1024x1024), the upstream pipeline will automatically "snap" and force the generation to 2048x2048.
-
-Compute Times: Because the model renders a raw 2048x2048 image pixel-by-pixel without a VAE, generation times will be significantly longer than standard latent models (like SDXL or Flux).
-
-Prompting Style: Avoid stacking heavy texture tags (e.g., "8k resolution, ultra-detailed, gritty textures") unless you want a heavily illustrated look. For photorealism, use clean, simple photographic terms.
+Prompting: Avoid over-stacking "8k, ultra-detailed" tags unless you want a heavily illustrated look. The model is naturally responsive to clean, photographic descriptions.
