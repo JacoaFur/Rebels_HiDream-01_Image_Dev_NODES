@@ -2,10 +2,13 @@
 
 NOW SUPPORTS ALL SAMPLER/SCHEDULERS AND HAS PATCH MODEL SMOOTHING BUILT IN TO CORRECT TILING!
 
+- added all samplers and schedulers for more flexibility in generations.
+- added the patch model smoothing abilities to the sampler node to remove bad tiling and textures from outputs. 
+
 
 NOW SUPPORTS MULTI-REFERENCE EDITING!
 
-Added Ability to edit with up to 4 reference images.
+- added Ability to edit with up to 4 reference images.
 
 open a command prompt in the "Rebels_HiDream_01_Image_dev_NODES" folder.
 
