@@ -99,6 +99,9 @@ class Qwen3VLVisionRotaryEmbedding(nn.Module):
         inv_freq = 1.0 / (theta ** (torch.arange(0, dim, 2, dtype=torch.float) / dim))
         self.register_buffer("inv_freq", inv_freq, persistent=False)
 
+    def compute_default_rope_parameters(self, *args, **kwargs):
+        return getattr(self, "inv_freq", None), getattr(self, "attention_scaling", 1.0)
+
     def forward(self, seqlen: int) -> torch.Tensor:
         seq = torch.arange(seqlen, device=self.inv_freq.device, dtype=self.inv_freq.dtype)
         freqs = torch.outer(seq, self.inv_freq)
@@ -303,14 +306,25 @@ class Qwen3VLTextRotaryEmbedding(nn.Module):
         self.original_max_seq_len = config.max_position_embeddings
 
         self.config = config
-        self.rope_init_fn = ROPE_INIT_FUNCTIONS[self.rope_type]
-
+        # Fallback for when config passes 'default' instead of a mapped key
+        safe_rope_type = self.rope_type if self.rope_type != "default" else "linear"
+        self.rope_init_fn = ROPE_INIT_FUNCTIONS.get(safe_rope_type, list(ROPE_INIT_FUNCTIONS.values())[0])
+# --- NEW SAFETY INJECTION ---
+        if not hasattr(self.config, "rope_scaling") or self.config.rope_scaling is None:
+            self.config.rope_scaling = {"type": "linear", "factor": 1.0}
+        elif isinstance(self.config.rope_scaling, dict):
+            if "factor" not in self.config.rope_scaling:
+                self.config.rope_scaling["factor"] = 1.0
+# ----------------------------
         inv_freq, self.attention_scaling = self.rope_init_fn(self.config, device)
         self.register_buffer("inv_freq", inv_freq, persistent=False)
         self.original_inv_freq = self.inv_freq
         # self.original_inv_freq, _ = self.rope_init_fn(self.config, device)
 
         self.mrope_section = config.rope_scaling.get("mrope_section", [24, 20, 20])
+
+    def compute_default_rope_parameters(self, *args, **kwargs):
+        return getattr(self, "inv_freq", None), getattr(self, "attention_scaling", 1.0)
 
     def apply_interleaved_mrope(self, freqs, mrope_section):
         """Apply interleaved MRoPE to 3D rotary embeddings.
