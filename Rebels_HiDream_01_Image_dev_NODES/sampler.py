@@ -1,5 +1,5 @@
 """
-Rebel HiDream-01 Sampler.
+Rebel HiDream-O1 Sampler.
 Supports T2I, image editing with up to 4 refs, seam smoothing,
 full KSampler-style sampler/scheduler selection.
 """
@@ -93,7 +93,7 @@ class RebelHiDreamO1Sampler:
 
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "sample"
-    CATEGORY = "Rebels/HiDream-01"
+    CATEGORY = "Rebels/HiDream-O1"
 
     def sample(self, model, prompt, resolution_preset,
                custom_width, custom_height,
@@ -111,7 +111,7 @@ class RebelHiDreamO1Sampler:
         force_custom = res is None
         if force_custom:
             width, height = custom_width, custom_height
-            print(f"[Rebels_HiDream_01] Custom resolution forced: {width}x{height}")
+            print(f"[Rebels_HiDream_O1] Custom resolution forced: {width}x{height}")
         else:
             width, height = res
 
@@ -123,7 +123,7 @@ class RebelHiDreamO1Sampler:
             temp_dir = tempfile.mkdtemp(prefix="hidream_refs_")
             for i, ref in enumerate(connected):
                 ref_paths.append(_image_to_path(ref, temp_dir, i))
-            print(f"[Rebels_HiDream_01] {len(ref_paths)} reference image(s) loaded")
+            print(f"[Rebels_HiDream_O1] {len(ref_paths)} reference image(s) loaded")
 
         # --- Custom resolution patch ---
         patched_originals = {}
@@ -138,7 +138,7 @@ class RebelHiDreamO1Sampler:
                     patched_originals["utils"] = _utils.find_closest_resolution
                     _utils.find_closest_resolution = lambda w, h: (w, h)
             except Exception as e:
-                print(f"[Rebels_HiDream_01] Could not patch find_closest_resolution: {e}")
+                print(f"[Rebels_HiDream_O1] Could not patch find_closest_resolution: {e}")
 
         try:
             pil_image = generate_image(
